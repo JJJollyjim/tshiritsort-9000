@@ -1,0 +1,35 @@
+language: rust
+sudo: false
+
+cache: cargo
+
+matrix:
+  include:
+
+  # Builds with wasm-pack.
+  - rust: nightly
+    env: RUST_BACKTRACE=1
+    addons:
+      firefox: latest
+      chrome: stable
+    before_script:
+      - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+    script:
+      - cargo generate --git . --name testing
+      - wasm-pack build
+      - wasm-pack test --chrome --firefox --headless
+
+  # Builds on nightly.
+  - rust: nightly
+    env: RUST_BACKTRACE=1
+    before_script:
+      - rustup target add wasm32-unknown-unknown
+    script:
+      - cargo check
+      - cargo check --target wasm32-unknown-unknown
+      - cargo check                                 --no-default-features
+      - cargo check --target wasm32-unknown-unknown --no-default-features
+      - cargo check                                 --no-default-features --features console_error_panic_hook
+      - cargo check --target wasm32-unknown-unknown --no-default-features --features console_error_panic_hook
+      - cargo check                                 --no-default-features --features "console_error_panic_hook wee_alloc"
+      - cargo check --target wasm32-unknown-unknown --no-default-features --features "console_error_panic_hook wee_alloc"
