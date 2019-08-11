@@ -4,7 +4,7 @@
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
   </head>
   <body>
-      <select id="nyaa" name="">
+      <select id="size_dropdown" name="">
           <option>unfittEd 4X L   </option>
           <option>fittEd 4X L   </option>
           <option>unfittEd x-s</option>
@@ -24,35 +24,293 @@
       </select>
 
 
-    <!-- Note the usage of `type=module` here as this is an ES6 module -->
-    <script type="module">
-      // Use ES module import syntax to import functionality from the module
-      // that we have compiled.
-      //
-      // Note that the `default` import is an initialization function which
-      // will "boot" the module and make it ready to use. Currently browsers
-      // don't support natively imported WebAssembly as an ES module, but
-      // eventually the manual initialization won't be required!
-      import init from './pkg/tshirtsort.js';
+      <script>
+       let wasm;
 
-      async function run() {
-        // First up we need to actually load the wasm file, so we use the
-        // default export to inform it where the wasm file is located on the
-        // server, and then we wait on the returned promise to wait for the
-        // wasm to be loaded.
-        // It may look like this: `await init('./pkg/without_a_bundler_bg.wasm');`,
-        // but there is also a handy default inside `init` function, which uses
-        // `import.meta` to locate the wasm file relatively to js file
-        //
-        // Note that instead of a string here you can also pass in an instance
-        // of `WebAssembly.Module` which allows you to compile your own module.
-        // Also note that the promise, when resolved, yields the wasm module's
-        // exports which is the same as importing the `*_bg` module in other
-        // modes
-        await init();
-      }
+       const heap = new Array(32);
 
-      run();
-    </script>
+       heap.fill(undefined);
+
+       heap.push(undefined, null, true, false);
+
+       function getObject(idx) { return heap[idx]; }
+
+       let heap_next = heap.length;
+
+       function dropObject(idx) {
+           if (idx < 36) return;
+           heap[idx] = heap_next;
+           heap_next = idx;
+       }
+
+       function takeObject(idx) {
+           const ret = getObject(idx);
+           dropObject(idx);
+           return ret;
+       }
+
+       let cachedTextDecoder = new TextDecoder('utf-8');
+
+       let cachegetUint8Memory = null;
+       function getUint8Memory() {
+           if (cachegetUint8Memory === null || cachegetUint8Memory.buffer !== wasm.memory.buffer) {
+               cachegetUint8Memory = new Uint8Array(wasm.memory.buffer);
+           }
+           return cachegetUint8Memory;
+       }
+
+       function getStringFromWasm(ptr, len) {
+           return cachedTextDecoder.decode(getUint8Memory().subarray(ptr, ptr + len));
+       }
+
+       function isLikeNone(x) {
+           return x === undefined || x === null;
+       }
+
+       function addHeapObject(obj) {
+           if (heap_next === heap.length) heap.push(heap.length + 1);
+           const idx = heap_next;
+           heap_next = heap[idx];
+
+           heap[idx] = obj;
+           return idx;
+       }
+
+       let WASM_VECTOR_LEN = 0;
+
+       let cachedTextEncoder = new TextEncoder('utf-8');
+
+       let passStringToWasm;
+       if (typeof cachedTextEncoder.encodeInto === 'function') {
+           passStringToWasm = function(arg) {
+
+
+               let size = arg.length;
+               let ptr = wasm.__wbindgen_malloc(size);
+               let offset = 0;
+               {
+                   const mem = getUint8Memory();
+                   for (; offset < arg.length; offset++) {
+                       const code = arg.charCodeAt(offset);
+                       if (code > 0x7F) break;
+                       mem[ptr + offset] = code;
+                   }
+               }
+
+               if (offset !== arg.length) {
+                   arg = arg.slice(offset);
+                   ptr = wasm.__wbindgen_realloc(ptr, size, size = offset + arg.length * 3);
+                   const view = getUint8Memory().subarray(ptr + offset, ptr + size);
+                   const ret = cachedTextEncoder.encodeInto(arg, view);
+
+                   offset += ret.written;
+               }
+               WASM_VECTOR_LEN = offset;
+               return ptr;
+           };
+       } else {
+           passStringToWasm = function(arg) {
+
+
+               let size = arg.length;
+               let ptr = wasm.__wbindgen_malloc(size);
+               let offset = 0;
+               {
+                   const mem = getUint8Memory();
+                   for (; offset < arg.length; offset++) {
+                       const code = arg.charCodeAt(offset);
+                       if (code > 0x7F) break;
+                       mem[ptr + offset] = code;
+                   }
+               }
+
+               if (offset !== arg.length) {
+                   const buf = cachedTextEncoder.encode(arg.slice(offset));
+                   ptr = wasm.__wbindgen_realloc(ptr, size, size = offset + buf.length);
+                   getUint8Memory().set(buf, ptr + offset);
+                   offset += buf.length;
+               }
+               WASM_VECTOR_LEN = offset;
+               return ptr;
+           };
+       }
+
+       let cachegetInt32Memory = null;
+       function getInt32Memory() {
+           if (cachegetInt32Memory === null || cachegetInt32Memory.buffer !== wasm.memory.buffer) {
+               cachegetInt32Memory = new Int32Array(wasm.memory.buffer);
+           }
+           return cachegetInt32Memory;
+       }
+
+       function handleError(e) {
+           wasm.__wbindgen_exn_store(addHeapObject(e));
+       }
+
+       function init(module) {
+           let result;
+           const imports = {};
+           imports.wbg = {};
+           imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
+               takeObject(arg0);
+           };
+           imports.wbg.__widl_instanceof_Window = function(arg0) {
+               const ret = getObject(arg0) instanceof Window;
+               return ret;
+           };
+           imports.wbg.__widl_f_get_element_by_id_Document = function(arg0, arg1, arg2) {
+               const ret = getObject(arg0).getElementById(getStringFromWasm(arg1, arg2));
+               return isLikeNone(ret) ? 0 : addHeapObject(ret);
+           };
+           imports.wbg.__widl_f_set_inner_html_Element = function(arg0, arg1, arg2) {
+               getObject(arg0).innerHTML = getStringFromWasm(arg1, arg2);
+           };
+           imports.wbg.__widl_f_children_Element = function(arg0) {
+               const ret = getObject(arg0).children;
+               return addHeapObject(ret);
+           };
+           imports.wbg.__widl_f_item_HTMLCollection = function(arg0, arg1) {
+               const ret = getObject(arg0).item(arg1 >>> 0);
+               return isLikeNone(ret) ? 0 : addHeapObject(ret);
+           };
+           imports.wbg.__widl_f_inner_text_HTMLElement = function(arg0, arg1) {
+               const ret = getObject(arg1).innerText;
+               const ret0 = passStringToWasm(ret);
+               const ret1 = WASM_VECTOR_LEN;
+               getInt32Memory()[arg0 / 4 + 0] = ret0;
+               getInt32Memory()[arg0 / 4 + 1] = ret1;
+           };
+           imports.wbg.__widl_f_append_child_Node = function(arg0, arg1) {
+               try {
+                   const ret = getObject(arg0).appendChild(getObject(arg1));
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__widl_f_remove_child_Node = function(arg0, arg1) {
+               try {
+                   const ret = getObject(arg0).removeChild(getObject(arg1));
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__widl_f_document_Window = function(arg0) {
+               const ret = getObject(arg0).document;
+               return isLikeNone(ret) ? 0 : addHeapObject(ret);
+           };
+           imports.wbg.__wbindgen_object_clone_ref = function(arg0) {
+               const ret = getObject(arg0);
+               return addHeapObject(ret);
+           };
+           imports.wbg.__wbg_newnoargs_368b05293a3f44de = function(arg0, arg1) {
+               const ret = new Function(getStringFromWasm(arg0, arg1));
+               return addHeapObject(ret);
+           };
+           imports.wbg.__wbg_call_1fc553129cb17c3c = function(arg0, arg1) {
+               try {
+                   const ret = getObject(arg0).call(getObject(arg1));
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__wbg_globalThis_8df2c73db5eac245 = function() {
+               try {
+                   const ret = globalThis.globalThis;
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__wbg_self_937dd9f384d2384a = function() {
+               try {
+                   const ret = self.self;
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__wbg_window_425d3fa09c43ece4 = function() {
+               try {
+                   const ret = window.window;
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__wbg_global_2c090b42ef2744b9 = function() {
+               try {
+                   const ret = global.global;
+                   return addHeapObject(ret);
+               } catch (e) {
+                   handleError(e)
+               }
+           };
+           imports.wbg.__wbindgen_is_undefined = function(arg0) {
+               const ret = getObject(arg0) === undefined;
+               return ret;
+           };
+           imports.wbg.__wbg_new_59cb74e423758ede = function() {
+               const ret = new Error();
+               return addHeapObject(ret);
+           };
+           imports.wbg.__wbg_stack_558ba5917b466edd = function(arg0, arg1) {
+               const ret = getObject(arg1).stack;
+               const ret0 = passStringToWasm(ret);
+               const ret1 = WASM_VECTOR_LEN;
+               getInt32Memory()[arg0 / 4 + 0] = ret0;
+               getInt32Memory()[arg0 / 4 + 1] = ret1;
+           };
+           imports.wbg.__wbg_error_4bb6c2a97407129a = function(arg0, arg1) {
+               const v0 = getStringFromWasm(arg0, arg1).slice();
+               wasm.__wbindgen_free(arg0, arg1 * 1);
+               console.error(v0);
+           };
+           imports.wbg.__wbindgen_throw = function(arg0, arg1) {
+               throw new Error(getStringFromWasm(arg0, arg1));
+           };
+           imports.wbg.__wbindgen_rethrow = function(arg0) {
+               throw takeObject(arg0);
+           };
+
+           if (module instanceof URL || typeof module === 'string' || module instanceof Request) {
+
+               const response = fetch(module);
+               if (typeof WebAssembly.instantiateStreaming === 'function') {
+                   result = WebAssembly.instantiateStreaming(response, imports)
+                                       .catch(e => {
+                                           console.warn("`WebAssembly.instantiateStreaming` failed. Assuming this is because your server does not serve wasm with `application/wasm` MIME type. Falling back to `WebAssembly.instantiate` which is slower. Original error:\n", e);
+                                           return response
+                                               .then(r => r.arrayBuffer())
+                                               .then(bytes => WebAssembly.instantiate(bytes, imports));
+                                       });
+               } else {
+                   result = response
+                       .then(r => r.arrayBuffer())
+                       .then(bytes => WebAssembly.instantiate(bytes, imports));
+               }
+           } else {
+
+               result = WebAssembly.instantiate(module, imports)
+                                   .then(result => {
+                                       if (result instanceof WebAssembly.Instance) {
+                                           return { instance: result, module };
+                                       } else {
+                                           return result;
+                                       }
+                                   });
+           }
+           return result.then(({instance, module}) => {
+               wasm = instance.exports;
+               init.__wbindgen_wasm_module = module;
+               wasm.__wbindgen_start();
+               return wasm;
+           });
+       }
+
+       init("path/to/tshirtsort_bg.wasm");
+      </script>
   </body>
 </html>

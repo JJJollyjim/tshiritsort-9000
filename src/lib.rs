@@ -16,7 +16,7 @@ pub fn run() -> Result<(), JsValue> {
         .unwrap()
         .document()
         .unwrap()
-        .get_element_by_id("nyaa")
+        .get_element_by_id("size_dropdown")
         .unwrap();
     let mut elems: Vec<(usize, _)> = Vec::new();
 
