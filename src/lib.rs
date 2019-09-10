@@ -1,3 +1,5 @@
+#![feature(slice_patterns)]
+
 mod sortation;
 mod utils;
 
